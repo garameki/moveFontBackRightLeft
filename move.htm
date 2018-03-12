@@ -1,0 +1,210 @@
+<!DOCTYPE html><html><head>
+<script type='text/javascript' src='../library/independMessage.js'></script>
+<script type='text/javascript' src='../library/angleOppositeToXAxis.js'></script>
+<script type='text/javascript'>
+
+
+
+
+
+
+
+
+
+
+var Motion = function(filename,dx,dy){
+	this.filename=filename;
+	this.dx=dx;
+	this.dy=dy;
+}
+
+var configurePlace = function(){
+	if(this.xx<0)this.xx=0;
+	if(this.xx>window.innerWidth)this.xx=window.innerWidth;
+	if(this.yy<0)this.yy=0;
+	if(this.yy>window.innerHeight)this.yy=window.innerHeight;
+}	
+		
+var move=function(self){
+
+	return function(){
+
+
+		self.xx+=self.motions[self.nAction].dx;
+		self.yy+=self.motions[self.nAction].dy;
+		configurePlace.call(self);
+
+		self.div.style.left=self.xx.toString()+'px';
+		self.div.style.top=self.yy.toString()+'px';
+	}
+}
+
+var N_Stand=0
+var N_WalkSouth=3;
+var N_WalkNorth=4;
+var N_WalkEast=1;
+var N_WalkWest=2;
+
+var Mono=function(name,folda){
+	this.name=name;
+	this.level=1;
+	this.image=new Image();
+	this.image.onmousedown=function(event){
+		message.log(event);
+	}
+	this.div=document.createElement('div');
+	this.div.style.position='absolute';
+	this.div.appendChild(this.image);
+
+
+	this.motions=new Array(5);
+	this.motions[N_Stand]=new Motion(folda+"/"+name+"/"+name+'_stand.gif',0,0);
+	this.motions[N_WalkEast]=new Motion(folda+"/"+name+"/"+name+'_walk_east.gif',1,0);
+	this.motions[N_WalkWest]=new Motion(folda+"/"+name+"/"+name+'_walk_west.gif',-1,0);
+	this.motions[N_WalkSouth]=new Motion(folda+"/"+name+"/"+name+'_walk_south.gif',0,1);
+	this.motions[N_WalkNorth]=new Motion(folda+"/"+name+"/"+name+'_walk_north.gif',0,-1);
+
+	this.nAction=N_Stand;
+
+	this.xx=0;
+	this.yy=0;
+	this.hogeAct=null;
+	this.hogeMoveTo=null;
+
+}
+Mono.prototype.put=function(xx,yy){
+
+	this.xx=xx;
+	this.yy=yy;
+	configurePlace.call(this);
+	document.getElementById('field').appendChild(this.div);
+	this.div.style.left=this.xx.toString()+'px';
+	this.div.style.top=this.yy.toString()+'px';
+
+	if(this.hogeAct==null){
+		this.hogeAct=setInterval(move(this),10);
+	}
+}
+Mono.prototype.leave=function(){
+	if(this.hogeAct!=null)clearInterval(this.hogeAct);
+	this.hogeAct=null;
+	document.getElementById('field').removeChild(this.div);
+}
+Mono.prototype.act=function(num){
+
+	this.nAction=num;
+
+	this.image.src=this.motions[this.nAction].filename;
+	if(this.hogeAct==null){
+		this.hogeAct=setInterval(move(this),10);
+	}
+}
+Mono.prototype.moveTo=function(xx,yy){
+
+
+	var self=this;
+	var angle;
+	var dist;
+	var xxBefore=this.xx;
+	var yyBefore=this.yy;
+
+	if(this.hogeMoveTo!=null)return;
+
+	var decideDirection=function(){
+		angle=getAngle(self.xx,self.yy,xx,yy);
+
+		if(angle < 45){
+			self.act(N_WalkWest);
+		}else if(angle <135){
+			self.act(N_WalkSouth);
+		}else if(angle <225){
+			self.act(N_WalkEast);
+		}else if(angle < 315){
+			self.act(N_WalkNorth);
+		}else if(angle < 360){
+			self.act(N_WalkWest);
+		}else{
+			message.error("行くべき方向がわかりません");
+		}
+	}
+
+	decideDirection();
+	this.hogeMoveTo=setInterval(function(){
+
+		dist=calcDistance(self.xx,self.yy,xxBefore,yyBefore);
+		if(dist>100){
+			decideDirection();
+			xxBefore=self.xx;
+			yyBefore=self.yy;
+		}
+		dist=calcDistance(self.xx,self.yy,xx,yy);
+//message.log(self.xx,self.yy,dist);
+		if(dist<50){
+			self.act(N_Stand);
+			clearInterval(self.hogeMoveTo);
+			self.hogeMoveTo=null;	
+		}
+	},100);
+}	
+
+onload=function(){
+
+	var foldaImages='./';
+
+	var nn=100;
+
+	var medama;
+	var medamas=new Array();
+	for(var ii=0;ii<nn;ii++){
+		medama = new Mono('medama',foldaImages);
+		medama.div.style.zIndex=10;
+		medama.put(Math.floor(window.innerWidth/2*Math.random()),Math.floor(window.innerHeight/2*Math.random()));
+		medama.act(N_Stand);
+		medamas.push(medama);
+	}
+
+	var niku=new Mono('niku',foldaImages);
+	niku.div.style.zIndex=5;
+	niku.image.style.width='100px';
+	niku.image.style.height='50px';
+	niku.put(100,100);niku.act(N_Stand);
+
+	var flag;
+	var hogehoge=setInterval(function(){
+		flag=false;
+		for(var ii=0;ii<nn;ii++){
+			if(medamas[ii].hogeMoveTo==null){
+				flag=true;
+				break;
+			}
+		}
+		if(flag){
+			var ox=Math.floor(Math.random()*(window.innerWidth-200))+100;
+			var oy=Math.floor(Math.random()*(window.innerHeight-200))+100;
+			niku.put(ox-30,oy-30);
+			for(var ii=0;ii<nn;ii++){
+				medamas[ii].moveTo(ox,oy);
+			}
+			
+		}
+
+
+	},100);
+
+	const message=new Mes(0,0,window.innerWidth,window.innerHeight,10);
+	window.addEventListener('mousewheel',function(event){
+		message.scroll(event.wheelDeltaY);
+	},true);
+
+	message.log("コケコッコー");	
+
+	window.addEventListener('mousedown',function(event){
+		if(Math.random()>0.5)message.error("からすだー");
+		else message.log("はとだー");
+	});
+}
+
+
+
+
+</script></head><body><div id='field'></div></body></html>
